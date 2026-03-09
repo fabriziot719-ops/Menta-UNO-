@@ -1,40 +1,461 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MentalUNO - Multijugador Corregido</title>
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    
-    <style>
-        :root { --rojo: #ff5555; --azul: #5555ff; --verde: #55aa55; --amarillo: #ffaa00; --negro: #222; }
-        body { font-family: 'Segoe UI', sans-serif; text-align: center; background: #1a1a2e; color: white; margin: 0; overflow-x: hidden; }
-        
-        .pantalla { display: none; padding: 20px; min-height: 100vh; flex-direction: column; align-items: center; justify-content: center; }
-        .activa { display: flex; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-        h1 { color: var(--amarillo); text-shadow: 2px 2px var(--rojo); font-size: 3rem; margin: 10px 0; }
-        
-        .btn-menu { padding: 15px 30px; font-size: 1.2rem; margin: 10px; border: none; border-radius: 50px; cursor: pointer; font-weight: bold; width: 280px; color: white; transition: 0.3s; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
-        .btn-crear { background: var(--verde); }
-        .btn-unirse { background: var(--azul); }
-        .btn-individual { background: #8e44ad; }
-        .btn-robar { background: #444; border: 2px dashed #888; margin-top: 15px; }
+<title>MentalUNO</title>
 
-        .estado-bots { display: none; justify-content: space-around; width: 100%; max-width: 600px; margin-bottom: 20px; }
-        .bot-card { background: rgba(255,255,255,0.1); padding: 10px; border-radius: 10px; border: 2px solid transparent; }
-        .bot-activo { border-color: var(--amarillo); background: rgba(255,170,0,0.2); }
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
-        .carta { display: inline-block; width: 75px; height: 110px; border-radius: 10px; margin: 5px; line-height: 110px; font-size: 2rem; font-weight: bold; cursor: pointer; border: 3px solid white; box-shadow: 0 4px 8px rgba(0,0,0,0.5); transition: 0.2s; position: relative; }
-        .rojo { background: var(--rojo); } .azul { background: var(--azul); } .verde { background: var(--verde); } .amarillo { background: var(--amarillo); color: #222; }
-        
-        .indicador-turno { padding: 15px; border-radius: 10px; margin-bottom: 20px; font-size: 1.2rem; font-weight: bold; width: 80%; max-width: 400px; }
-        .turno-mio { background: var(--verde); animation: pulse 1.5s infinite; }
-        .turno-otro { background: var(--rojo); }
+<style>
+:root{
+--rojo:#ff5555;
+--azul:#5555ff;
+--verde:#55aa55;
+--amarillo:#ffaa00;
+}
 
-        #modal-pregunta { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; }
-        .pregunta-box { background: #2c2c2c; padding: 25px; border-radius: 20px; width: 85%; max-width: 500px; border: 2px solid var(--amarillo); }
+body{
+font-family:'Segoe UI';
+text-align:center;
+background:#1a1a2e;
+color:white;
+margin:0;
+}
+
+.pantalla{
+display:none;
+padding:20px;
+min-height:100vh;
+flex-direction:column;
+align-items:center;
+justify-content:center;
+}
+
+.activa{display:flex;}
+
+h1{
+color:var(--amarillo);
+font-size:3rem;
+}
+
+.btn-menu{
+padding:15px 30px;
+font-size:1.2rem;
+margin:10px;
+border:none;
+border-radius:50px;
+cursor:pointer;
+font-weight:bold;
+width:280px;
+color:white;
+}
+
+.btn-crear{background:var(--verde);}
+.btn-unirse{background:var(--azul);}
+.btn-individual{background:#8e44ad;}
+
+.carta{
+display:inline-block;
+width:75px;
+height:110px;
+border-radius:10px;
+margin:5px;
+line-height:110px;
+font-size:2rem;
+font-weight:bold;
+cursor:pointer;
+border:3px solid white;
+}
+
+.rojo{background:var(--rojo);}
+.azul{background:var(--azul);}
+.verde{background:var(--verde);}
+.amarillo{background:var(--amarillo);color:#222;}
+
+.mano{
+display:flex;
+flex-wrap:wrap;
+justify-content:center;
+}
+
+#modal-pregunta{
+position:fixed;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:rgba(0,0,0,0.95);
+display:none;
+flex-direction:column;
+align-items:center;
+justify-content:center;
+}
+
+.pregunta-box{
+background:#2c2c2c;
+padding:25px;
+border-radius:20px;
+width:85%;
+max-width:500px;
+border:2px solid var(--amarillo);
+}
+
+.opcion-btn{
+display:block;
+width:100%;
+padding:12px;
+margin:8px 0;
+background:#444;
+color:white;
+border:1px solid #555;
+border-radius:10px;
+cursor:pointer;
+}
+
+.reglas{
+max-width:600px;
+background:#2c2c2c;
+padding:20px;
+border-radius:20px;
+}
+</style>
+</head>
+
+<body>
+
+<div id="pantalla-inicio" class="pantalla activa">
+<h1>MENTALUNO</h1>
+
+<button class="btn-menu btn-individual" onclick="iniciarIndividual()">👤 Individual vs Bots</button>
+
+<button class="btn-menu btn-crear" onclick="prepararHost()">📡 Crear Sala</button>
+
+<button class="btn-menu btn-unirse" onclick="cambiarPantalla('unirse')">🔗 Unirse</button>
+
+<button class="btn-menu" style="background:#ffaa00" onclick="cambiarPantalla('reglas')">📜 Reglas</button>
+</div>
+
+<div id="pantalla-reglas" class="pantalla">
+<div class="reglas">
+<h2>Reglas de MentalUNO</h2>
+
+<p>
+1. Cada jugador recibe 7 cartas.<br><br>
+
+2. Solo puedes jugar una carta del mismo color o número que la mesa.<br><br>
+
+3. Para colocar una carta debes responder correctamente una pregunta tipo EXANI-II.<br><br>
+
+4. Si fallas la pregunta robas una carta.<br><br>
+
+5. Gana el jugador que se quede sin cartas primero.<br><br>
+
+6. Cuando alguien gana, la partida termina automáticamente.
+</p>
+
+<button class="btn-menu" onclick="cambiarPantalla('inicio')">Volver</button>
+</div>
+</div>
+
+<div id="pantalla-unirse" class="pantalla">
+
+<h2>Ingresa código</h2>
+
+<input id="input-sala" maxlength="4" style="padding:15px;font-size:2rem;text-align:center;width:200px">
+
+<button class="btn-menu btn-crear" onclick="conectarASala()">Conectar</button>
+
+<button class="btn-menu" onclick="cambiarPantalla('inicio')">Volver</button>
+
+</div>
+
+<div id="pantalla-juego" class="pantalla">
+
+<h2 id="indicador-turno">Cargando...</h2>
+
+<div id="mesa-carta" class="carta">?</div>
+
+<br>
+
+<button onclick="robarCarta()" class="btn-menu">Robar carta</button>
+
+<div id="mano" class="mano"></div>
+
+<p>Tus cartas: <span id="cont-cartas">0</span></p>
+
+</div>
+
+<div id="modal-pregunta">
+<div class="pregunta-box">
+
+<h3 id="texto-pregunta"></h3>
+
+<div id="opciones-container"></div>
+
+</div>
+</div>
+
+<script>
+
+const preguntas=[
+
+{p:"El objetivo principal de un texto argumentativo es:",opciones:["Narrar hechos","Convencer mediante razones","Describir objetos","Enumerar datos"],correcta:1},
+
+{p:"El conector 'sin embargo' indica:",opciones:["Consecuencia","Ejemplo","Contraste","Comparación"],correcta:2},
+
+{p:"Inferir información en un texto significa:",opciones:["Copiar datos","Traducir palabras","Deducir información implícita","Repetir ideas"],correcta:2},
+
+{p:"Si un texto presenta cifras y estudios científicos, busca:",opciones:["Expresar emociones","Dar credibilidad al argumento","Narrar historias","Crear humor"],correcta:1},
+
+{p:"La idea principal de un texto es:",opciones:["Un detalle secundario","El mensaje central","Una opinión","Un ejemplo"],correcta:1},
+
+{p:"El conector 'por lo tanto' expresa:",opciones:["Conclusión","Oposición","Comparación","Ejemplo"],correcta:0},
+
+{p:"Un argumento basado en un solo caso se considera:",opciones:["Generalización apresurada","Argumento deductivo","Evidencia científica","Demostración lógica"],correcta:0},
+
+{p:"Cuando un autor cita expertos intenta:",opciones:["Persuadir con autoridad","Narrar historias","Explicar definiciones","Evitar conclusiones"],correcta:0},
+
+{p:"Si 4x + 6 = 22 el valor de x es:",opciones:["3","4","5","6"],correcta:1},
+
+{p:"Simplifica 3(2x+5)",opciones:["6x+5","6x+15","5x+15","3x+5"],correcta:1},
+
+{p:"Raíz cuadrada de 196",opciones:["12","13","14","15"],correcta:2},
+
+{p:"Si x²=81 entonces x puede ser",opciones:["9","-9","9 o -9","18"],correcta:2},
+
+{p:"Triángulo 50° y 60° tercer ángulo",opciones:["60°","70°","80°","90°"],correcta:1},
+
+{p:"25% de 400",opciones:["50","75","100","125"],correcta:2},
+
+{p:"240 km en 4 horas velocidad",opciones:["50","60","70","80"],correcta:1},
+
+{p:"5²+4²",opciones:["25","41","30","45"],correcta:1},
+
+{p:"2x−3=7 entonces x",opciones:["4","5","6","7"],correcta:1},
+
+{p:"Área rectángulo 8x5",opciones:["13","30","40","45"],correcta:2},
+
+{p:"Unidad básica de la vida",opciones:["Órgano","Tejido","Célula","Sistema"],correcta:2},
+
+{p:"Fotosíntesis ocurre en",opciones:["Cloroplastos","Mitocondrias","Núcleo","Ribosomas"],correcta:0},
+
+{p:"ADN contiene",opciones:["Energía","Información genética","Oxígeno","Proteínas"],correcta:1},
+
+{p:"Organelo que produce ATP",opciones:["Núcleo","Mitocondria","Ribosoma","Vacuola"],correcta:1},
+
+{p:"Conservación de energía",opciones:["Se destruye","Se transforma pero no se destruye","Desaparece","Se multiplica"],correcta:1},
+
+{p:"Paso de agua por membrana",opciones:["Difusión","Ósmosis","Fotosíntesis","Evaporación"],correcta:1},
+
+{p:"Variable manipulada en experimento",opciones:["Dependiente","Independiente","Controlada","Externa"],correcta:1},
+
+{p:"Sucesión 5,10,15,20",opciones:["22","25","30","35"],correcta:1},
+
+{p:"2,6,18,54",opciones:["72","108","162","216"],correcta:2},
+
+{p:"Ana estudiante entonces",opciones:["No estudia","Estudia","Enseña","Trabaja"],correcta:1},
+
+{p:"Sol:día Luna:",opciones:["cielo","noche","estrella","planeta"],correcta:1},
+
+{p:"Agua:beber comida:",opciones:["cocinar","comer","cortar","preparar"],correcta:1},
+
+{p:"She ___ to school",opciones:["go","goes","going","gone"],correcta:1},
+
+{p:"Synonym big",opciones:["Small","Large","Short","Thin"],correcta:1},
+
+{p:"Past run",opciones:["ran","runned","running","runs"],correcta:0},
+
+{p:"They ___ studying now",opciones:["is","are","am","be"],correcta:1},
+
+{p:"Good evening",opciones:["Buenos días","Buenas tardes","Buenas noches","Hola"],correcta:2},
+
+{p:"Gráfico de barras sirve para",opciones:["Comparar categorías","Mostrar tiempo","Mapas","Texto"],correcta:0},
+
+{p:"0.5 probabilidad equivale",opciones:["5%","50%","0.5%","500%"],correcta:1},
+
+{p:"Muestra no representa población",opciones:["Precisión","Sesgo","Exactitud","Media"],correcta:1},
+
+{p:"Media 4,6,8",opciones:["5","6","7","8"],correcta:1},
+
+{p:"Mediana 3,5,9",opciones:["5","6","7","9"],correcta:0},
+
+{p:"500 con 20% descuento",opciones:["350","400","420","450"],correcta:1},
+
+{p:"75% de 200",opciones:["120","130","150","175"],correcta:2},
+
+{p:"3³",opciones:["9","18","27","81"],correcta:2},
+
+{p:"10²",opciones:["20","100","200","1000"],correcta:1},
+
+{p:"Raíz 144",opciones:["10","11","12","14"],correcta:2},
+
+{p:"Planeta cercano al Sol",opciones:["Venus","Mercurio","Marte","Tierra"],correcta:1},
+
+{p:"Gas más abundante atmósfera",opciones:["Oxígeno","Hidrógeno","Nitrógeno","Helio"],correcta:2},
+
+{p:"Órgano que bombea sangre",opciones:["Pulmón","Corazón","Hígado","Riñón"],correcta:1},
+
+{p:"Velocidad de la luz",opciones:["300000 km/s","30000","3000","300"],correcta:0},
+
+{p:"División celular idéntica",opciones:["Meiosis","Mitosis","Fisión","Reproducción"],correcta:1}
+
+];
+
+let mano=[]
+let mesaActual=null
+let indexPendiente=null
+let miTurno=true
+
+function cambiarPantalla(id){
+document.querySelectorAll(".pantalla").forEach(p=>p.classList.remove("activa"))
+document.getElementById("pantalla-"+id).classList.add("activa")
+}
+
+function generarCarta(){
+const colores=["rojo","azul","verde","amarillo"]
+return{
+color:colores[Math.floor(Math.random()*4)],
+valor:Math.floor(Math.random()*10),
+qIndex:Math.floor(Math.random()*preguntas.length)
+}
+}
+
+function iniciarIndividual(){
+
+cambiarPantalla("juego")
+
+mesaActual=generarCarta()
+
+mano=Array.from({length:7},generarCarta)
+
+actualizarMesa(mesaActual)
+
+actualizarInterfazMano()
+
+}
+
+function actualizarMesa(carta){
+mesaActual=carta
+let el=document.getElementById("mesa-carta")
+el.className="carta "+carta.color
+el.innerText=carta.valor
+}
+
+function actualizarInterfazMano(){
+
+const cont=document.getElementById("mano")
+cont.innerHTML=""
+
+mano.forEach((c,i)=>{
+
+const d=document.createElement("div")
+
+d.className="carta "+c.color
+
+d.innerText=c.valor
+
+d.onclick=()=>intentarJugar(i)
+
+cont.appendChild(d)
+
+})
+
+document.getElementById("cont-cartas").innerText=mano.length
+}
+
+function intentarJugar(idx){
+
+const c=mano[idx]
+
+if(c.color===mesaActual.color||c.valor===mesaActual.valor){
+
+indexPendiente=idx
+
+abrirPregunta(c.qIndex)
+
+}else{
+
+alert("No coincide con la mesa")
+
+}
+
+}
+
+function abrirPregunta(qIdx){
+
+const q=preguntas[qIdx]
+
+document.getElementById("texto-pregunta").innerText=q.p
+
+const cont=document.getElementById("opciones-container")
+
+cont.innerHTML=""
+
+q.opciones.forEach((opc,i)=>{
+
+const btn=document.createElement("button")
+
+btn.className="opcion-btn"
+
+btn.innerText=opc
+
+btn.onclick=()=>validarRespuesta(i,q.correcta)
+
+cont.appendChild(btn)
+
+})
+
+document.getElementById("modal-pregunta").style.display="flex"
+
+}
+
+function validarRespuesta(elegida,correcta){
+
+document.getElementById("modal-pregunta").style.display="none"
+
+if(elegida===correcta){
+
+const cartaJugada=mano.splice(indexPendiente,1)[0]
+
+actualizarMesa(cartaJugada)
+
+actualizarInterfazMano()
+
+if(mano.length===0){
+
+alert("¡GANASTE!")
+
+location.reload()
+
+}
+
+}else{
+
+alert("Incorrecto robas carta")
+
+mano.push(generarCarta())
+
+actualizarInterfazMano()
+
+}
+
+}
+
+function robarCarta(){
+
+mano.push(generarCarta())
+
+actualizarInterfazMano()
+
+}
+
+</script>
+
+</body>
+</html>        .pregunta-box { background: #2c2c2c; padding: 25px; border-radius: 20px; width: 85%; max-width: 500px; border: 2px solid var(--amarillo); }
         .opcion-btn { display: block; width: 100%; padding: 12px; margin: 8px 0; background: #444; color: white; border: 1px solid #555; border-radius: 10px; cursor: pointer; text-align: left; }
 
         .mano { display: flex; flex-wrap: wrap; justify-content: center; padding: 10px; transition: 0.3s; }
