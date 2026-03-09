@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MentalUNO EXANI-II - Online</title>
+    <title>MentalUNO EXANI-II - Pro Edition</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     
     <style>
-        :root { --rojo: #ff5555; --azul: #5555ff; --verde: #55aa55; --amarillo: #ffaa00; --negro: #222; }
+        :root { --rojo: #ff5555; --azul: #5555ff; --verde: #55aa55; --amarillo: #ffaa00; --negro: #222; --morado: #a29bfe; }
         body { font-family: 'Segoe UI', sans-serif; text-align: center; background: #1a1a2e; color: white; margin: 0; overflow-x: hidden; }
         
         .pantalla { display: none; padding: 20px; min-height: 100vh; flex-direction: column; align-items: center; justify-content: center; }
@@ -16,15 +16,21 @@
 
         h1 { color: var(--amarillo); text-shadow: 2px 2px var(--rojo); font-size: 3rem; margin: 10px 0; }
         
-        .btn-menu { padding: 15px 30px; font-size: 1.2rem; margin: 10px; border: none; border-radius: 50px; cursor: pointer; font-weight: bold; width: 260px; color: white; transition: 0.2s;}
+        .btn-menu { padding: 15px 30px; font-size: 1.1rem; margin: 8px; border: none; border-radius: 50px; cursor: pointer; font-weight: bold; width: 280px; color: white; transition: 0.2s;}
         .btn-crear { background: var(--verde); }
         .btn-unirse { background: var(--azul); }
+        .btn-solo { background: var(--morado); color: #1a1a2e; }
         .btn-accion { background: var(--amarillo); color: black; }
 
-        .carta { display: inline-block; width: 80px; height: 120px; border-radius: 12px; margin: 5px; line-height: 120px; font-size: 1.8rem; font-weight: bold; cursor: pointer; border: 3px solid white; box-shadow: 0 4px 8px rgba(0,0,0,0.3); transition: 0.2s; position: relative; }
+        .carta { display: inline-block; width: 75px; height: 110px; border-radius: 12px; margin: 5px; line-height: 110px; font-size: 1.6rem; font-weight: bold; cursor: pointer; border: 3px solid white; box-shadow: 0 4px 8px rgba(0,0,0,0.3); transition: 0.2s; position: relative; }
         .carta:hover { transform: translateY(-5px); }
         .rojo { background: var(--rojo); } .azul { background: var(--azul); } .verde { background: var(--verde); } .amarillo { background: var(--amarillo); color: #222; } .negro { background: var(--negro); }
         
+        /* Barra de NPCs */
+        #npc-bar { display: none; width: 100%; max-width: 500px; justify-content: space-around; margin-bottom: 20px; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 15px; }
+        .npc-box { font-size: 0.8rem; padding: 5px 10px; border-radius: 10px; border: 2px solid transparent; transition: 0.3s; }
+        .npc-activo { border-color: var(--amarillo); background: rgba(255, 255, 255, 0.1); transform: scale(1.1); }
+
         #qrcode { background: white; padding: 15px; border-radius: 10px; margin: 20px auto; display: inline-block; }
         .input-code { padding: 12px; font-size: 1.5rem; text-align: center; border-radius: 10px; border: none; width: 200px; margin: 10px; text-transform: uppercase; }
 
@@ -34,6 +40,265 @@
         
         .estado { padding: 10px 20px; background: rgba(255,255,255,0.1); border-radius: 50px; margin-bottom: 15px; font-weight: bold; }
         .deshabilitado { opacity: 0.4; pointer-events: none; filter: grayscale(0.8); }
+        .badge { background: var(--amarillo); color: black; padding: 3px 10px; border-radius: 5px; font-size: 0.8rem; margin-bottom: 10px; display: inline-block; }
+    </style>
+</head>
+<body>
+
+    <div id="pantalla-inicio" class="pantalla activa">
+        <h1>MENTALUNO</h1>
+        <p>EXANI-II Training</p>
+        <button class="btn-menu btn-solo" onclick="iniciarModoSolo()">🕹️ Modo Individual (vs 3 NPCs)</button>
+        <button class="btn-menu btn-crear" onclick="crearSala()">📡 Crear Sala Online</button>
+        <button class="btn-menu btn-unirse" onclick="mostrarUnirse()">🔗 Unirse a Sala</button>
+    </div>
+
+    <div id="pantalla-host" class="pantalla">
+        <h2>Código de Sala:</h2>
+        <h1 id="codigo-sala" style="letter-spacing: 5px; color: var(--amarillo);">...</h1>
+        <div id="qrcode"></div>
+        <p class="estado" id="estado-host">Esperando rival...</p>
+        <button class="btn-menu btn-unirse" onclick="location.reload()">Cancelar</button>
+    </div>
+
+    <div id="pantalla-unirse" class="pantalla">
+        <h2>Ingresa el código:</h2>
+        <input type="text" id="input-sala" class="input-code" placeholder="CÓDIGO" maxlength="4">
+        <button class="btn-menu btn-accion" onclick="conectarASala()">Conectar</button>
+        <button class="btn-menu btn-unirse" onclick="cambiarPantalla('inicio')">Volver</button>
+    </div>
+
+    <div id="pantalla-juego" class="pantalla">
+        <div id="npc-bar">
+            <div id="box-npc1" class="npc-box">🤖 Bot A<br><span id="cnt-npc1">6</span> c.</div>
+            <div id="box-npc2" class="npc-box">🤖 Bot B<br><span id="cnt-npc2">6</span> c.</div>
+            <div id="box-npc3" class="npc-box">🤖 Bot C<br><span id="cnt-npc3">6</span> c.</div>
+        </div>
+
+        <div class="estado" id="indicador-turno">Sincronizando...</div>
+        <div>
+            <p>Mesa:</p>
+            <div id="mesa-carta" class="carta rojo">5</div>
+        </div>
+        <h3>Tu Mano (<span id="cont-cartas">0</span>)</h3>
+        <div id="mano"></div>
+    </div>
+
+    <div id="modal-pregunta">
+        <div class="pregunta-box">
+            <span class="badge" id="cat-pregunta">EXANI-II</span>
+            <h3 id="texto-pregunta">...</h3>
+            <div id="opciones-container"></div>
+        </div>
+    </div>
+
+<script>
+    const preguntas = [
+        { p: "Si 2x + 4 = 12, el valor de x es:", opciones: ["A) 3", "B) 4", "C) 5", "D) 6"], correcta: 1, cat: "Mate" },
+        { p: "El conector 'sin embargo' indica:", opciones: ["A) Consecuencia", "B) Ejemplo", "C) Contraste", "D) Comparación"], correcta: 2, cat: "Lectura" },
+        { p: "La raíz cuadrada de 196 es:", opciones: ["A) 12", "B) 13", "C) 14", "D) 15"], correcta: 2, cat: "Mate" },
+        { p: "Unidad básica de los seres vivos:", opciones: ["A) Órgano", "B) Tejido", "C) Célula", "D) Sistema"], correcta: 2, cat: "Ciencia" },
+        { p: "La fotosíntesis ocurre en:", opciones: ["A) Cloroplastos", "B) Mitocondrias", "C) Núcleo", "D) Ribosomas"], correcta: 0, cat: "Ciencia" },
+        { p: "Sucesión: 2, 6, 18, 54, ___", opciones: ["A) 72", "B) 108", "C) 162", "D) 216"], correcta: 2, cat: "Lógica" },
+        { p: "Analogía: Sol : día :: Luna :", opciones: ["A) Cielo", "B) Noche", "C) Estrella", "D) Planeta"], correcta: 1, cat: "Lógica" },
+        { p: "Past tense of 'run':", opciones: ["A) Ran", "B) Runned", "C) Running", "D) Runs"], correcta: 0, cat: "Inglés" }
+    ];
+
+    let peer = null, conexion = null, miTurno = false, modoSolo = false;
+    let mano = [], manosNPC = [[],[],[]];
+    let cartaPendiente = null, indexPendiente = null;
+
+    function generarCodigo() { return Math.random().toString(36).substring(2, 6).toUpperCase(); }
+
+    function cambiarPantalla(id) {
+        document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('activa'));
+        document.getElementById('pantalla-' + id).classList.add('activa');
+    }
+
+    // --- LÓGICA MODO INDIVIDUAL ---
+    function iniciarModoSolo() {
+        modoSolo = true;
+        document.getElementById('npc-bar').style.display = 'flex';
+        cambiarPantalla('juego');
+        
+        // Repartir cartas
+        mano = Array.from({length: 6}, () => generarCartaAleatoria());
+        manosNPC = [
+            Array.from({length: 6}, () => generarCartaAleatoria()),
+            Array.from({length: 6}, () => generarCartaAleatoria()),
+            Array.from({length: 6}, () => generarCartaAleatoria())
+        ];
+        
+        actualizarMesa(generarCartaAleatoria());
+        actualizarMano();
+        actualizarConteosNPC();
+        setTurno(true);
+    }
+
+    function pasarTurnoNPC(num) {
+        if (num > 3) {
+            setTurno(true);
+            return;
+        }
+        
+        setTurno(false);
+        const box = document.getElementById(`box-npc${num}`);
+        box.classList.add('npc-activo');
+        document.getElementById('indicador-turno').innerText = `Bot ${num} pensando...`;
+
+        setTimeout(() => {
+            const index = num - 1;
+            const cartaBot = manosNPC[index].shift();
+            actualizarMesa(cartaBot);
+            actualizarConteosNPC();
+            box.classList.remove('npc-activo');
+            
+            if (manosNPC[index].length === 0) {
+                alert(`¡Gano el Bot ${num}! Fin del juego.`);
+                location.reload();
+            } else {
+                pasarTurnoNPC(num + 1);
+            }
+        }, 1500); // 1.5 segundos por bot
+    }
+
+    function actualizarConteosNPC() {
+        document.getElementById('cnt-npc1').innerText = manosNPC[0].length;
+        document.getElementById('cnt-npc2').innerText = manosNPC[1].length;
+        document.getElementById('cnt-npc3').innerText = manosNPC[2].length;
+    }
+
+    // --- LÓGICA ONLINE ---
+    function crearSala() {
+        modoSolo = false;
+        let miId = generarCodigo(); cambiarPantalla('host');
+        peer = new Peer("mentaluno-" + miId);
+        peer.on('open', id => {
+            document.getElementById('codigo-sala').innerText = miId;
+            new QRCode(document.getElementById("qrcode"), { text: window.location.origin + window.location.pathname + "?sala=" + miId, width: 150, height: 150 });
+        });
+        peer.on('connection', conn => {
+            conexion = conn;
+            conexion.on('open', () => {
+                document.getElementById('estado-host').innerText = "¡Rival listo! Iniciando...";
+                setTimeout(iniciarJuegoHost, 800);
+            });
+            configurarConexion();
+        });
+    }
+
+    function mostrarUnirse() { modoSolo = false; cambiarPantalla('unirse'); peer = new Peer(); }
+
+    function conectarASala() {
+        let salaId = document.getElementById('input-sala').value.toUpperCase();
+        conexion = peer.connect("mentaluno-" + salaId);
+        conexion.on('open', () => { configurarConexion(); cambiarPantalla('juego'); });
+    }
+
+    function iniciarJuegoHost() {
+        mano = Array.from({length: 6}, () => generarCartaAleatoria());
+        let manoRival = Array.from({length: 6}, () => generarCartaAleatoria());
+        let cartaMesa = generarCartaAleatoria();
+        actualizarMesa(cartaMesa);
+        actualizarMano();
+        setTurno(true);
+        cambiarPantalla('juego');
+        conexion.send({ tipo: "inicio", mano: manoRival, mesa: cartaMesa, tuTurno: false });
+    }
+
+    // --- NÚCLEO DEL JUEGO ---
+    function generarCartaAleatoria() {
+        const colores = ["rojo", "azul", "verde", "amarillo"];
+        return { color: colores[Math.floor(Math.random()*4)], valor: Math.floor(Math.random()*10) };
+    }
+
+    function actualizarMano() {
+        const cont = document.getElementById("mano");
+        cont.innerHTML = "";
+        mano.forEach((c, i) => {
+            const d = document.createElement("div");
+            d.className = `carta ${c.color}`;
+            d.innerHTML = c.valor;
+            d.onclick = () => intentarJugar(i);
+            cont.appendChild(d);
+        });
+        document.getElementById("cont-cartas").innerText = mano.length;
+    }
+
+    function actualizarMesa(c) {
+        const m = document.getElementById("mesa-carta");
+        m.className = `carta ${c.color}`;
+        m.innerHTML = c.valor;
+    }
+
+    function setTurno(v) {
+        miTurno = v;
+        const i = document.getElementById('indicador-turno');
+        const m = document.getElementById('mano');
+        i.innerText = v ? "¡TU TURNO!" : "Espera...";
+        i.style.background = v ? "var(--verde)" : "var(--rojo)";
+        v ? m.classList.remove('deshabilitado') : m.classList.add('deshabilitado');
+    }
+
+    function intentarJugar(idx) {
+        if(!miTurno) return;
+        cartaPendiente = mano[idx];
+        indexPendiente = idx;
+        const q = preguntas[Math.floor(Math.random()*preguntas.length)];
+        document.getElementById("texto-pregunta").innerText = q.p;
+        document.getElementById("cat-pregunta").innerText = q.cat;
+        const opts = document.getElementById("opciones-container");
+        opts.innerHTML = "";
+        q.opciones.forEach((o, i) => {
+            const b = document.createElement("button");
+            b.className = "opcion-btn"; b.innerText = o;
+            b.onclick = () => responder(i, q.correcta);
+            opts.appendChild(b);
+        });
+        document.getElementById("modal-pregunta").style.display = "flex";
+    }
+
+    function responder(sel, corr) {
+        document.getElementById("modal-pregunta").style.display = "none";
+        if(sel === corr) {
+            alert("¡Correcto!");
+            mano.splice(indexPendiente, 1);
+            actualizarMesa(cartaPendiente);
+            actualizarMano();
+            if (mano.length === 0) { alert("¡GANASTE!"); location.reload(); return; }
+            
+            if (modoSolo) {
+                pasarTurnoNPC(1);
+            } else {
+                conexion.send({ tipo: "jugada", carta: cartaPendiente });
+                setTurno(false);
+            }
+        } else {
+            alert("Error. Robas carta y pierdes turno.");
+            mano.push(generarCartaAleatoria());
+            actualizarMano();
+            if (modoSolo) {
+                pasarTurnoNPC(1);
+            } else {
+                conexion.send({ tipo: "jugada", carta: { color: document.getElementById("mesa-carta").classList[1], valor: document.getElementById("mesa-carta").innerText } });
+                setTurno(false);
+            }
+        }
+    }
+
+    function configurarConexion() {
+        conexion.on('data', data => {
+            if(data.tipo === "inicio") {
+                mano = data.mano; actualizarMesa(data.mesa); setTurno(data.tuTurno); actualizarMano(); cambiarPantalla('juego');
+            }
+            if(data.tipo === "jugada") {
+                actualizarMesa(data.carta); setTurno(true);
+            }
+        });
+    }
+</script>
+</body>
+</html>
         .badge { background: var(--amarillo); color: black; padding: 3px 10px; border-radius: 5px; font-size: 0.8rem; margin-bottom: 10px; display: inline-block; }
     </style>
 </head>
