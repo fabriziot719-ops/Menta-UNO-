@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MentalUNO - Multijugador</title>
+    <title>MentalUNO - Pro Edition</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     
@@ -14,26 +14,292 @@
         .pantalla { display: none; padding: 20px; min-height: 100vh; flex-direction: column; align-items: center; justify-content: center; }
         .activa { display: flex; }
 
-        h1 { color: var(--amarillo); text-shadow: 2px 2px var(--rojo); font-size: 3rem; margin-bottom: 5px; }
+        h1 { color: var(--amarillo); text-shadow: 2px 2px var(--rojo); font-size: 3rem; margin: 10px 0; }
         
         .input-code { padding: 15px; font-size: 1.5rem; text-align: center; border-radius: 10px; border: none; width: 200px; margin: 10px; letter-spacing: 5px; text-transform: uppercase; }
         .btn-menu { padding: 15px 30px; font-size: 1.2rem; margin: 10px; border: none; border-radius: 50px; cursor: pointer; font-weight: bold; width: 250px; color: white; transition: 0.2s;}
         .btn-crear { background: var(--verde); }
         .btn-unirse { background: var(--azul); }
         .btn-accion { background: var(--amarillo); color: black; }
-        .btn-mazo { background: #444; border: 2px dashed #888; margin-top: 15px; }
+        
+        .mazo-visual { width: 100px; height: 140px; background: #444; border: 4px solid #666; border-radius: 10px; margin: 20px auto; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.9rem; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
+        .mazo-visual:hover { transform: scale(1.05); background: #555; }
 
-        .carta { display: inline-block; width: 80px; height: 120px; border-radius: 10px; margin: 5px; line-height: 120px; font-size: 2rem; font-weight: bold; cursor: pointer; border: 3px solid white; box-shadow: 0 4px 8px rgba(0,0,0,0.3); transition: transform 0.2s; }
-        .carta:hover { transform: translateY(-10px); }
+        .carta { display: inline-block; width: 80px; height: 120px; border-radius: 10px; margin: 5px; line-height: 120px; font-size: 2rem; font-weight: bold; cursor: pointer; border: 3px solid white; box-shadow: 0 4px 8px rgba(0,0,0,0.3); transition: 0.2s; position: relative; }
+        .carta:hover { transform: translateY(-10px); z-index: 10; }
         
-        .rojo { background: var(--rojo); } .azul { background: var(--azul); } .verde { background: var(--verde); } .amarillo { background: var(--amarillo); color: #222; } .negro { background: var(--negro); }
-        
-        #qrcode { background: white; padding: 15px; border-radius: 10px; margin: 20px auto; display: inline-block; }
+        .rojo { background: var(--rojo); } .azul { background: var(--azul); } .verde { background: var(--verde); } .amarillo { background: var(--amarillo); color: #222; }
         
         #modal-pregunta { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
-        .pregunta-box { background: #333; padding: 20px; border-radius: 15px; width: 90%; max-width: 400px; }
-        .opcion-btn { display: block; width: 100%; padding: 12px; margin: 8px 0; background: #444; color: white; border: 1px solid #666; border-radius: 8px; cursor: pointer; text-align: left; }
+        .pregunta-box { background: #333; padding: 25px; border-radius: 15px; width: 90%; max-width: 500px; box-shadow: 0 0 20px var(--amarillo); }
+        .opcion-btn { display: block; width: 100%; padding: 15px; margin: 10px 0; background: #444; color: white; border: 1px solid #666; border-radius: 8px; cursor: pointer; text-align: left; font-size: 1rem; }
+        .opcion-btn:hover { background: #555; border-color: white; }
         
+        .estado { padding: 12px; background: rgba(255,255,255,0.1); border-radius: 10px; margin-bottom: 15px; font-weight: bold; }
+        .deshabilitado { opacity: 0.4; pointer-events: none; filter: grayscale(0.8); }
+    </style>
+</head>
+<body>
+
+    <div id="pantalla-inicio" class="pantalla activa">
+        <h1>MENTALUNO</h1>
+        <p>Modo Competitivo EXANI-II</p>
+        <button class="btn-menu btn-crear" onclick="crearSala()">📡 Crear Sala</button>
+        <button class="btn-menu btn-unirse" onclick="mostrarUnirse()">🔗 Unirse a Sala</button>
+    </div>
+
+    <div id="pantalla-host" class="pantalla">
+        <h2>Código de Sala:</h2>
+        <h1 id="codigo-sala">---</h1>
+        <div id="qrcode"></div>
+        <p class="estado">Esperando oponente...</p>
+    </div>
+
+    <div id="pantalla-unirse" class="pantalla">
+        <h2>Ingresa el código:</h2>
+        <input type="text" id="input-sala" class="input-code" placeholder="CÓDIGO" maxlength="4">
+        <button class="btn-menu btn-accion" onclick="conectarASala()">Entrar</button>
+        <button class="btn-menu btn-unirse" onclick="cambiarPantalla('inicio')">Cancelar</button>
+    </div>
+
+    <div id="pantalla-juego" class="pantalla">
+        <div id="indicador-turno" class="estado">Cargando partida...</div>
+        
+        <div style="display: flex; gap: 40px; align-items: center;">
+            <div>
+                <p>En Mesa</p>
+                <div id="mesa-carta" class="carta">?</div>
+            </div>
+            <div>
+                <p>Mazo</p>
+                <div id="mazo-click" class="mazo-visual" onclick="robarDelMazo()">ROBAR<br>CARTA</div>
+            </div>
+        </div>
+
+        <h3>Tu Mano (<span id="cont-cartas">0</span>)</h3>
+        <div id="mano"></div>
+    </div>
+
+    <div id="modal-pregunta">
+        <div class="pregunta-box">
+            <h3 id="texto-pregunta">Pregunta</h3>
+            <div id="opciones-container"></div>
+        </div>
+    </div>
+
+<script>
+    // --- BANCO DE PREGUNTAS (50 Reactivos) ---
+    const preguntas = [
+        { p: "El objetivo principal de un texto argumentativo es:", opciones: ["Narrar hechos", "Convencer mediante razones", "Describir objetos", "Enumerar datos"], correcta: 1 },
+        { p: "El conector 'sin embargo' indica:", opciones: ["Consecuencia", "Ejemplo", "Contraste", "Comparación"], correcta: 2 },
+        { p: "Inferir información en un texto significa:", opciones: ["Copiar datos", "Traducir palabras", "Deducir información implícita", "Repetir ideas"], correcta: 2 },
+        { p: "Si un texto presenta cifras y estudios científicos, busca:", opciones: ["Expresar emociones", "Dar credibilidad al argumento", "Narrar historias", "Crear humor"], correcta: 1 },
+        { p: "La idea principal de un texto es:", opciones: ["Un detalle secundario", "El mensaje central", "Una opinión", "Un ejemplo"], correcta: 1 },
+        { p: "El conector 'por lo tanto' expresa:", opciones: ["Conclusión", "Oposición", "Comparación", "Ejemplo"], correcta: 0 },
+        { p: "Un argumento basado en un solo caso se considera:", opciones: ["Generalización apresurada", "Argumento deductivo", "Evidencia científica", "Demostración lógica"], correcta: 0 },
+        { p: "Cuando un autor cita expertos, intenta:", opciones: ["Persuadir con autoridad", "Narrar historias", "Explicar definiciones", "Evitar conclusiones"], correcta: 0 },
+        { p: "Si x + 2 = 6, el valor de x es:", opciones: ["3", "4", "5", "6"], correcta: 1 },
+        { p: "Simplifica: 3(2x + 5)", opciones: ["6x + 5", "6x + 15", "5x + 15", "3x + 5"], correcta: 1 },
+        { p: "La raíz cuadrada de 196 es:", opciones: ["12", "13", "14", "15"], correcta: 2 },
+        { p: "Si x² = 81, entonces x puede ser:", opciones: ["9", "-9", "9 o -9", "18"], correcta: 2 },
+        { p: "Si un triángulo tiene ángulos de 50° y 60°, el tercero mide:", opciones: ["60°", "70°", "80°", "90°"], correcta: 1 },
+        { p: "El 25% de 400 es:", opciones: ["50", "75", "100", "125"], correcta: 2 },
+        { p: "Un automóvil recorre 240 km en 4 horas. Su velocidad es:", opciones: ["50 km/h", "60 km/h", "70 km/h", "80 km/h"], correcta: 1 },
+        { p: "La expresión 4² + 5² es:", opciones: ["25", "41", "30", "45"], correcta: 1 },
+        { p: "Si 2x = 10, entonces x es:", opciones: ["4", "5", "6", "7"], correcta: 1 },
+        { p: "El área de un rectángulo de 8 cm por 5 cm es:", opciones: ["13", "30", "40", "45"], correcta: 2 },
+        { p: "La unidad básica de los seres vivos es:", opciones: ["Órgano", "Tejido", "Célula", "Sistema"], correcta: 2 },
+        { p: "La fotosíntesis ocurre principalmente en:", opciones: ["Cloroplastos", "Mitocondrias", "Núcleo", "Ribosomas"], correcta: 0 },
+        { p: "El ADN contiene:", opciones: ["Energía", "Información genética", "Oxígeno", "Proteínas"], correcta: 1 },
+        { p: "El organelo encargado de producir energía celular es:", opciones: ["Núcleo", "Mitocondria", "Ribosoma", "Vacuola"], correcta: 1 },
+        { p: "La ley de conservación de la energía establece que:", opciones: ["Se destruye", "Se transforma pero no se crea ni destruye", "Desaparece", "Se multiplica"], correcta: 1 },
+        { p: "El proceso de paso de agua a través de membranas se llama:", opciones: ["Difusión", "Ósmosis", "Fotosíntesis", "Evaporación"], correcta: 1 },
+        { p: "En un experimento, la variable que se manipula es:", opciones: ["Dependiente", "Independiente", "Controlada", "Externa"], correcta: 1 },
+        { p: "Sucesión: 5, 10, 15, 20, ___", opciones: ["22", "25", "30", "35"], correcta: 1 },
+        { p: "Sucesión: 2, 6, 18, 54, ___", opciones: ["72", "108", "162", "216"], correcta: 2 },
+        { p: "Si todos los estudiantes estudian y Ana es estudiante, entonces:", opciones: ["Ana no estudia", "Ana estudia", "Ana enseña", "Ana trabaja"], correcta: 1 },
+        { p: "Analogía: Sol : día :: Luna :", opciones: ["cielo", "noche", "estrella", "planeta"], correcta: 1 },
+        { p: "Completa: Agua : beber :: comida :", opciones: ["cocinar", "comer", "cortar", "preparar"], correcta: 1 },
+        { p: "Choose the correct sentence:", opciones: ["She go to school", "She goes to school", "She going to school", "She gone to school"], correcta: 1 },
+        { p: "Synonym of big:", opciones: ["Small", "Large", "Short", "Thin"], correcta: 1 },
+        { p: "Past tense of run:", opciones: ["ran", "runned", "running", "runs"], correcta: 0 },
+        { p: "They ___ studying now.", opciones: ["is", "are", "am", "be"], correcta: 1 },
+        { p: "'Good evening' significa:", opciones: ["Buenos días", "Buenas tardes", "Buenas noches", "Hola"], correcta: 2 },
+        { p: "Un gráfico de barras se usa para:", opciones: ["Comparar categorías", "Mostrar tiempo", "Dibujar mapas", "Mostrar texto"], correcta: 0 },
+        { p: "Si la probabilidad de un evento es 0.5, equivale a:", opciones: ["5%", "50%", "0.5%", "500%"], correcta: 1 },
+        { p: "Si una muestra no representa a la población existe:", opciones: ["Precisión", "Sesgo", "Exactitud", "Media"], correcta: 1 },
+        { p: "La media de 4, 6 y 8 es:", opciones: ["5", "6", "7", "8"], correcta: 1 },
+        { p: "La mediana de 3, 5, 9 es:", opciones: ["5", "6", "7", "9"], correcta: 0 },
+        { p: "Si un producto cuesta $500 y tiene descuento de 20%, el precio final es:", opciones: ["$350", "$400", "$420", "$450"], correcta: 1 },
+        { p: "75% de 200 es:", opciones: ["120", "130", "150", "175"], correcta: 2 },
+        { p: "Si 3^3 es:", opciones: ["9", "18", "27", "81"], correcta: 2 },
+        { p: "10^2 es:", opciones: ["20", "100", "200", "1000"], correcta: 1 },
+        { p: "La raíz cuadrada de 144 es:", opciones: ["10", "11", "12", "14"], correcta: 2 },
+        { p: "El planeta más cercano al Sol es:", opciones: ["Venus", "Mercurio", "Marte", "Tierra"], correcta: 1 },
+        { p: "El gas más abundante en la atmósfera es:", opciones: ["Oxígeno", "Hidrógeno", "Nitrógeno", "Helio"], correcta: 2 },
+        { p: "El órgano que bombea la sangre es:", opciones: ["Pulmón", "Corazón", "Hígado", "Riñón"], correcta: 1 },
+        { p: "La velocidad de la luz es aproximadamente:", opciones: ["300,000 km/s", "30,000 km/s", "3,000 km/s", "300 km/s"], correcta: 0 },
+        { p: "El proceso de división celular idéntica:", opciones: ["Meiosis", "Mitosis", "Fisión", "Reproducción"], correcta: 1 }
+    ];
+
+    // --- LÓGICA DE RED Y JUEGO ---
+    let peer, conexion, miTurno = false, esHost = false;
+    let mano = [], mesaActual = null, pendIndex = null;
+
+    function generarCarta() {
+        const colores = ["rojo", "azul", "verde", "amarillo"];
+        const q = preguntas[Math.floor(Math.random() * preguntas.length)];
+        return {
+            color: colores[Math.floor(Math.random() * 4)],
+            valor: Math.floor(Math.random() * 10).toString(),
+            pregunta: q
+        };
+    }
+
+    function cambiarPantalla(id) {
+        document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('activa'));
+        document.getElementById('pantalla-' + id).classList.add('activa');
+    }
+
+    // Host
+    function crearSala() {
+        esHost = true;
+        const idSala = Math.random().toString(36).substring(2, 6).toUpperCase();
+        peer = new Peer("m-uno-" + idSala);
+        peer.on('open', () => {
+            document.getElementById('codigo-sala').innerText = idSala;
+            new QRCode(document.getElementById("qrcode"), { text: window.location.href + "?s=" + idSala, width: 140, height: 140 });
+            cambiarPantalla('host');
+        });
+        peer.on('connection', conn => {
+            conexion = conn;
+            configurarConexion();
+            setTimeout(iniciarPartida, 1000);
+        });
+    }
+
+    // Invitado
+    function mostrarUnirse() { cambiarPantalla('unirse'); peer = new Peer(); }
+    function conectarASala() {
+        const id = document.getElementById('input-sala').value.toUpperCase();
+        conexion = peer.connect("m-uno-" + id);
+        conexion.on('open', () => {
+            configurarConexion();
+            cambiarPantalla('juego');
+        });
+    }
+
+    function configurarConexion() {
+        conexion.on('data', datos => {
+            if (datos.tipo === "inicio") {
+                mano = datos.mano;
+                mesaActual = datos.mesa;
+                actualizarUI();
+                setTurno(datos.tuTurno);
+                cambiarPantalla('juego');
+            }
+            if (datos.tipo === "jugada") {
+                mesaActual = datos.carta;
+                actualizarUI();
+                setTurno(true);
+            }
+            if (datos.tipo === "paso") setTurno(true);
+        });
+    }
+
+    function iniciarPartida() {
+        mano = Array.from({length: 5}, generarCarta);
+        let manoRival = Array.from({length: 5}, generarCarta);
+        mesaActual = generarCarta();
+        actualizarUI();
+        setTurno(true);
+        cambiarPantalla('juego');
+        conexion.send({ tipo: "inicio", mano: manoRival, mesa: mesaActual, tuTurno: false });
+    }
+
+    function actualizarUI() {
+        const mesaDiv = document.getElementById("mesa-carta");
+        mesaDiv.className = `carta ${mesaActual.color}`;
+        mesaDiv.innerText = mesaActual.valor;
+
+        const manoDiv = document.getElementById("mano");
+        manoDiv.innerHTML = "";
+        mano.forEach((c, i) => {
+            const div = document.createElement("div");
+            div.className = `carta ${c.color}`;
+            div.innerText = c.valor;
+            div.onclick = () => intentarJugar(i);
+            manoDiv.appendChild(div);
+        });
+        document.getElementById("cont-cartas").innerText = mano.length;
+    }
+
+    function setTurno(estado) {
+        miTurno = estado;
+        const ind = document.getElementById("indicador-turno");
+        ind.innerText = miTurno ? "¡ES TU TURNO!" : "Turno del rival...";
+        ind.style.background = miTurno ? "var(--verde)" : "rgba(255,255,255,0.1)";
+        document.getElementById("mano").classList.toggle("deshabilitado", !miTurno);
+        document.getElementById("mazo-click").classList.toggle("deshabilitado", !miTurno);
+    }
+
+    function intentarJugar(idx) {
+        if (!miTurno) return;
+        const carta = mano[idx];
+        
+        // REGLA: Mismo color o mismo número
+        if (carta.color === mesaActual.color || carta.valor === mesaActual.valor) {
+            pendIndex = idx;
+            mostrarPregunta(carta.pregunta);
+        } else {
+            alert("No puedes jugar esta carta. Debe coincidir color o número.");
+        }
+    }
+
+    function robarDelMazo() {
+        if (!miTurno) return;
+        mano.push(generarCarta());
+        actualizarUI();
+        alert("Has robado una carta. Turno para el oponente.");
+        conexion.send({ tipo: "paso" });
+        setTurno(false);
+    }
+
+    function mostrarPregunta(q) {
+        document.getElementById("texto-pregunta").innerText = q.p;
+        const opts = document.getElementById("opciones-container");
+        opts.innerHTML = "";
+        q.opciones.forEach((o, i) => {
+            const b = document.createElement("button");
+            b.className = "opcion-btn";
+            b.innerText = o;
+            b.onclick = () => procesarRespuesta(i, q.correcta);
+            opts.appendChild(b);
+        });
+        document.getElementById("modal-pregunta").style.display = "flex";
+    }
+
+    function procesarRespuesta(i, correcta) {
+        document.getElementById("modal-pregunta").style.display = "none";
+        if (i === correcta) {
+            alert("¡CORRECTO!");
+            const jugada = mano.splice(pendIndex, 1)[0];
+            mesaActual = jugada;
+            actualizarUI();
+            conexion.send({ tipo: "jugada", carta: jugada });
+            setTurno(false);
+            if (mano.length === 0) alert("¡GANASTE LA PARTIDA!");
+        } else {
+            alert("¡FALLASTE! Robas una carta de castigo y pierdes el turno.");
+            mano.push(generarCarta());
+            actualizarUI();
+            conexion.send({ tipo: "paso" });
+            setTurno(false);
+        }
+    }
+</script>
+</body>
+</html>
         .estado { padding: 10px; background: rgba(255,255,255,0.1); border-radius: 10px; margin-bottom: 10px; }
         .deshabilitado { opacity: 0.5; pointer-events: none; filter: grayscale(1); }
     </style>
