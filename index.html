@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MentalUNO - Individual vs Bots</title>
+    <title>MentalUNO - Multijugador Corregido</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     
@@ -20,8 +20,9 @@
         .btn-crear { background: var(--verde); }
         .btn-unirse { background: var(--azul); }
         .btn-individual { background: #8e44ad; }
-        
-        .estado-bots { display: flex; justify-content: space-around; width: 100%; max-width: 600px; margin-bottom: 20px; }
+        .btn-robar { background: #444; border: 2px dashed #888; margin-top: 15px; }
+
+        .estado-bots { display: none; justify-content: space-around; width: 100%; max-width: 600px; margin-bottom: 20px; }
         .bot-card { background: rgba(255,255,255,0.1); padding: 10px; border-radius: 10px; border: 2px solid transparent; }
         .bot-activo { border-color: var(--amarillo); background: rgba(255,170,0,0.2); }
 
@@ -30,10 +31,338 @@
         
         .indicador-turno { padding: 15px; border-radius: 10px; margin-bottom: 20px; font-size: 1.2rem; font-weight: bold; width: 80%; max-width: 400px; }
         .turno-mio { background: var(--verde); animation: pulse 1.5s infinite; }
-        .turno-bot { background: #555; }
+        .turno-otro { background: var(--rojo); }
 
         #modal-pregunta { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; }
         .pregunta-box { background: #2c2c2c; padding: 25px; border-radius: 20px; width: 85%; max-width: 500px; border: 2px solid var(--amarillo); }
+        .opcion-btn { display: block; width: 100%; padding: 12px; margin: 8px 0; background: #444; color: white; border: 1px solid #555; border-radius: 10px; cursor: pointer; text-align: left; }
+
+        .mano { display: flex; flex-wrap: wrap; justify-content: center; padding: 10px; transition: 0.3s; }
+        .deshabilitado { pointer-events: none; opacity: 0.5; filter: grayscale(1); }
+        #qrcode { background: white; padding: 10px; border-radius: 10px; margin: 15px; }
+
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <div id="pantalla-inicio" class="pantalla activa">
+        <h1>MENTALUNO</h1>
+        <button class="btn-menu btn-individual" onclick="iniciarIndividual()">👤 Individual vs 3 Bots</button>
+        <button class="btn-menu btn-crear" onclick="prepararHost()">📡 Crear Sala Multijugador</button>
+        <button class="btn-menu btn-unirse" onclick="cambiarPantalla('unirse')">🔗 Unirse a Sala</button>
+    </div>
+
+    <div id="pantalla-host" class="pantalla">
+        <h2>Código de Sala: <span id="codigo-sala" style="color:var(--amarillo)">---</span></h2>
+        <div id="qrcode"></div>
+        <p>Esperando al oponente...</p>
+        <button class="btn-menu" style="background:#666" onclick="location.reload()">Cancelar</button>
+    </div>
+
+    <div id="pantalla-unirse" class="pantalla">
+        <h2>Ingresa el código</h2>
+        <input type="text" id="input-sala" placeholder="ABCD" maxlength="4" style="padding:15px; font-size:2rem; text-align:center; width:200px; border-radius:10px; border:none; text-transform:uppercase;">
+        <button class="btn-menu btn-crear" onclick="conectarASala()">Conectar ahora</button>
+        <button class="btn-menu" style="background:#666" onclick="cambiarPantalla('inicio')">Volver</button>
+    </div>
+
+    <div id="pantalla-juego" class="pantalla">
+        <div id="estado-bots" class="estado-bots">
+            <div id="bot0" class="bot-card">Bot A: <b id="cards-bot0">7</b></div>
+            <div id="bot1" class="bot-card">Bot B: <b id="cards-bot1">7</b></div>
+            <div id="bot2" class="bot-card">Bot C: <b id="cards-bot2">7</b></div>
+        </div>
+
+        <div id="indicador-turno" class="indicador-turno">Cargando...</div>
+        
+        <div class="mesa">
+            <p>Mesa</p>
+            <div id="mesa-carta" class="carta">?</div>
+        </div>
+
+        <button id="btn-mazo" class="btn-menu btn-robar" onclick="robarCarta()">🎴 Robar del Mazo</button>
+
+        <div id="mano" class="mano"></div>
+        <p>Tus cartas: <span id="cont-cartas">0</span></p>
+    </div>
+
+    <div id="modal-pregunta">
+        <div class="pregunta-box">
+            <h3 id="texto-pregunta">---</h3>
+            <div id="opciones-container"></div>
+        </div>
+    </div>
+
+<script>
+    // --- BANCO DE PREGUNTAS ---
+    const preguntas = [
+        { p: "El objetivo principal de un texto argumentativo es:", opciones: ["Narrar hechos", "Convencer mediante razones", "Describir objetos", "Enumerar datos"], correcta: 1 },
+        { p: "El conector 'sin embargo' indica:", opciones: ["Consecuencia", "Ejemplo", "Contraste", "Comparación"], correcta: 2 },
+        { p: "Inferir información en un texto significa:", opciones: ["Copiar datos", "Traducir palabras", "Deducir información implícita", "Repetir ideas"], correcta: 2 },
+        { p: "Si un texto presenta cifras y estudios científicos, busca:", opciones: ["Expresar emociones", "Dar credibilidad al argumento", "Narrar historias", "Crear humor"], correcta: 1 },
+        { p: "La idea principal de un texto es:", opciones: ["Un detalle secundario", "El mensaje central", "Una opinión", "Un ejemplo"], correcta: 1 },
+        { p: "Si x + 2 = 6, el valor de x es:", opciones: ["3", "4", "5", "6"], correcta: 1 },
+        { p: "Simplifica: 3(2x + 5)", opciones: ["6x + 5", "6x + 15", "5x + 15", "3x + 5"], correcta: 1 },
+        { p: "La raíz cuadrada de 196 es:", opciones: ["12", "13", "14", "15"], correcta: 2 },
+        { p: "La unidad básica de los seres vivos es:", opciones: ["Órgano", "Tejido", "Célula", "Sistema"], correcta: 2 },
+        { p: "La fotosíntesis ocurre principalmente en:", opciones: ["Cloroplastos", "Mitocondrias", "Núcleo", "Ribosomas"], correcta: 0 },
+        { p: "El resultado de 3³ es:", opciones: ["9", "18", "27", "81"], correcta: 2 },
+        { p: "El órgano que bombea la sangre es:", opciones: ["Pulmón", "Corazón", "Hígado", "Riñón"], correcta: 1 }
+        // ... (Puedes rellenar con el resto de tus 50 preguntas aquí)
+    ];
+
+    let peer = null, conexion = null, miTurno = false, esHost = false, modoIndividual = false;
+    let mano = [], mesaActual = null, indexPendiente = null;
+    let manosBots = [[], [], []], turnoIndividual = 0; // 0: Jugador, 1-3: Bots
+
+    function cambiarPantalla(id) {
+        document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('activa'));
+        document.getElementById('pantalla-' + id).classList.add('activa');
+    }
+
+    function generarCarta() {
+        const colores = ["rojo", "azul", "verde", "amarillo"];
+        return {
+            color: colores[Math.floor(Math.random()*4)],
+            valor: Math.floor(Math.random()*10).toString(),
+            qIndex: Math.floor(Math.random()*preguntas.length)
+        };
+    }
+
+    // --- MULTIJUGADOR ---
+    function prepararHost() {
+        esHost = true;
+        modoIndividual = false;
+        let idSala = Math.random().toString(36).substring(2, 6).toUpperCase();
+        document.getElementById('codigo-sala').innerText = idSala;
+        cambiarPantalla('host');
+
+        peer = new Peer("mental-" + idSala);
+        peer.on('open', () => {
+            new QRCode(document.getElementById("qrcode"), { text: idSala, width: 128, height: 128 });
+        });
+
+        peer.on('connection', conn => {
+            conexion = conn;
+            configurarConexion();
+        });
+    }
+
+    function conectarASala() {
+        esHost = false;
+        modoIndividual = false;
+        let idSala = document.getElementById('input-sala').value.toUpperCase();
+        peer = new Peer();
+        peer.on('open', () => {
+            conexion = peer.connect("mental-" + idSala);
+            configurarConexion();
+        });
+    }
+
+    function configurarConexion() {
+        conexion.on('open', () => {
+            cambiarPantalla('juego');
+            if(esHost) {
+                // Host genera todo y envía al invitado
+                mesaActual = generarCarta();
+                mano = Array.from({length: 7}, generarCarta);
+                let manoInvitado = Array.from({length: 7}, generarCarta);
+                
+                actualizarMesa(mesaActual);
+                actualizarInterfazMano();
+                setTurno(true);
+
+                conexion.send({ 
+                    tipo: 'inicio', 
+                    mesa: mesaActual, 
+                    mano: manoInvitado 
+                });
+            }
+        });
+
+        conexion.on('data', data => {
+            if(data.tipo === 'inicio') {
+                mesaActual = data.mesa;
+                mano = data.mano;
+                actualizarMesa(mesaActual);
+                actualizarInterfazMano();
+                setTurno(false);
+            }
+            if(data.tipo === 'jugada') {
+                actualizarMesa(data.carta);
+                setTurno(true);
+            }
+            if(data.tipo === 'robo') {
+                setTurno(true);
+            }
+        });
+    }
+
+    // --- LÓGICA GENERAL ---
+    function actualizarMesa(carta) {
+        mesaActual = carta;
+        const el = document.getElementById('mesa-carta');
+        el.className = `carta ${carta.color}`;
+        el.innerText = carta.valor;
+    }
+
+    function actualizarInterfazMano() {
+        const cont = document.getElementById('mano');
+        cont.innerHTML = "";
+        mano.forEach((c, i) => {
+            const d = document.createElement('div');
+            d.className = `carta ${c.color}`;
+            d.innerText = c.valor;
+            d.onclick = () => intentarJugar(i);
+            cont.appendChild(d);
+        });
+        document.getElementById('cont-cartas').innerText = mano.length;
+    }
+
+    function setTurno(mio) {
+        miTurno = mio;
+        const ind = document.getElementById('indicador-turno');
+        const mazo = document.getElementById('btn-mazo');
+        if(miTurno) {
+            ind.innerText = "¡TU TURNO!";
+            ind.className = "indicador-turno turno-mio";
+            document.getElementById('mano').classList.remove('deshabilitado');
+            mazo.classList.remove('deshabilitado');
+        } else {
+            ind.innerText = "ESPERANDO AL RIVAL...";
+            ind.className = "indicador-turno turno-otro";
+            document.getElementById('mano').classList.add('deshabilitado');
+            mazo.classList.add('deshabilitado');
+        }
+    }
+
+    function intentarJugar(idx) {
+        if(!miTurno) return;
+        const c = mano[idx];
+        if(c.color === mesaActual.color || c.valor === mesaActual.valor) {
+            indexPendiente = idx;
+            abrirPregunta(c.qIndex);
+        } else {
+            alert("No coincide con la mesa.");
+        }
+    }
+
+    function abrirPregunta(qIdx) {
+        const q = preguntas[qIdx];
+        document.getElementById('texto-pregunta').innerText = q.p;
+        const cont = document.getElementById('opciones-container');
+        cont.innerHTML = "";
+        
+        q.opciones.forEach((opc, i) => {
+            const btn = document.createElement('button');
+            btn.className = "opcion-btn";
+            btn.innerText = opc;
+            btn.onclick = () => validarRespuesta(i, q.correcta);
+            cont.appendChild(btn);
+        });
+        document.getElementById('modal-pregunta').style.display = 'flex';
+    }
+
+    function validarRespuesta(elegida, correcta) {
+        document.getElementById('modal-pregunta').style.display = 'none';
+        if(elegida === correcta) {
+            const cartaJugada = mano.splice(indexPendiente, 1)[0];
+            actualizarMesa(cartaJugada);
+            actualizarInterfazMano();
+            
+            if(mano.length === 0) alert("¡GANASTE!");
+            
+            if(!modoIndividual) {
+                conexion.send({ tipo: 'jugada', carta: cartaJugada });
+                setTurno(false);
+            } else {
+                turnoIndividual = 1;
+                procesarTurnosIndividual();
+            }
+        } else {
+            alert("Error. Robas una carta.");
+            mano.push(generarCarta());
+            actualizarInterfazMano();
+            if(!modoIndividual) {
+                conexion.send({ tipo: 'robo' });
+                setTurno(false);
+            } else {
+                turnoIndividual = 1;
+                procesarTurnosIndividual();
+            }
+        }
+    }
+
+    function robarCarta() {
+        if(!miTurno) return;
+        mano.push(generarCarta());
+        actualizarInterfazMano();
+        if(!modoIndividual) {
+            conexion.send({ tipo: 'robo' });
+            setTurno(false);
+        } else {
+            turnoIndividual = 1;
+            procesarTurnosIndividual();
+        }
+    }
+
+    // --- MODO INDIVIDUAL VS BOTS ---
+    function iniciarIndividual() {
+        modoIndividual = true;
+        cambiarPantalla('juego');
+        document.getElementById('estado-bots').style.display = 'flex';
+        
+        mesaActual = generarCarta();
+        mano = Array.from({length: 7}, generarCarta);
+        manosBots = [
+            Array.from({length: 7}, generarCarta),
+            Array.from({length: 7}, generarCarta),
+            Array.from({length: 7}, generarCarta)
+        ];
+        
+        actualizarMesa(mesaActual);
+        actualizarInterfazMano();
+        turnoIndividual = 0;
+        setTurno(true);
+    }
+
+    function procesarTurnosIndividual() {
+        if(turnoIndividual === 0) {
+            setTurno(true);
+        } else {
+            setTurno(false);
+            const botIdx = turnoIndividual - 1;
+            document.getElementById(`bot${botIdx}`).className = "bot-card bot-activo";
+            
+            setTimeout(() => {
+                const bMano = manosBots[botIdx];
+                const iCarta = bMano.findIndex(c => c.color === mesaActual.color || c.valor === mesaActual.valor);
+                
+                if(iCarta !== -1) {
+                    const cValida = bMano.splice(iCarta, 1)[0];
+                    actualizarMesa(cValida);
+                } else {
+                    bMano.push(generarCarta());
+                }
+                
+                document.getElementById(`cards-bot${botIdx}`).innerText = bMano.length;
+                document.getElementById(`bot${botIdx}`).className = "bot-card";
+                
+                if(bMano.length === 0) {
+                    alert("Gana el Bot " + (botIdx + 1));
+                    location.reload();
+                    return;
+                }
+
+                turnoIndividual = (turnoIndividual + 1) % 4;
+                procesarTurnosIndividual();
+            }, 1200);
+        }
+    }
+</script>
+</body>
+</html>
         .opcion-btn { display: block; width: 100%; padding: 12px; margin: 8px 0; background: #444; color: white; border: 1px solid #555; border-radius: 10px; cursor: pointer; text-align: left; }
 
         .mano { display: flex; flex-wrap: wrap; justify-content: center; padding: 10px; transition: 0.3s; }
