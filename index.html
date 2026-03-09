@@ -1,40 +1,302 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MentalUNO - Edición EXANI-II</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    
+    <style>
+        :root { --rojo: #ff5555; --azul: #5555ff; --verde: #55aa55; --amarillo: #ffaa00; --negro: #222; }
+        body { font-family: 'Segoe UI', sans-serif; text-align: center; background: #1a1a2e; color: white; margin: 0; overflow-x: hidden; }
+        
+        .pantalla { display: none; padding: 20px; min-height: 100vh; flex-direction: column; align-items: center; justify-content: center; }
+        .activa { display: flex; }
 
-<title>MentalUNO</title>
+        h1 { color: var(--amarillo); text-shadow: 2px 2px var(--rojo); font-size: 3.5rem; margin: 10px 0; }
+        
+        .btn-menu { padding: 15px 30px; font-size: 1.1rem; margin: 8px; border: none; border-radius: 50px; cursor: pointer; font-weight: bold; width: 280px; color: white; transition: 0.3s; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        .btn-individual { background: #8e44ad; }
+        .btn-crear { background: var(--verde); }
+        .btn-unirse { background: var(--azul); }
+        .btn-reglas { background: #555; }
+        .btn-accion { background: var(--amarillo); color: black; }
 
-<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+        .estado-bots { display: none; flex-wrap: wrap; justify-content: center; gap: 10px; margin-bottom: 20px; }
+        .bot-card { background: rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 15px; border: 2px solid transparent; }
+        .bot-activo { border-color: var(--amarillo); background: rgba(255,170,0,0.2); animation: pulse 1s infinite; }
 
-<style>
-:root{
---rojo:#ff5555;
---azul:#5555ff;
---verde:#55aa55;
---amarillo:#ffaa00;
-}
+        .mesa { margin: 20px 0; }
+        .carta { display: inline-block; width: 85px; height: 130px; border-radius: 12px; margin: 8px; line-height: 130px; font-size: 2.5rem; font-weight: bold; cursor: pointer; border: 4px solid white; box-shadow: 0 6px 12px rgba(0,0,0,0.5); transition: 0.2s; position: relative; }
+        .carta:hover { transform: translateY(-10px); }
+        .rojo { background: var(--rojo); } .azul { background: var(--azul); } .verde { background: var(--verde); } .amarillo { background: var(--amarillo); color: #222; }
+        
+        .indicador-turno { padding: 15px; border-radius: 10px; margin-bottom: 20px; font-size: 1.2rem; font-weight: bold; width: 80%; max-width: 400px; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        .turno-mio { background: var(--verde); }
+        .turno-otro { background: var(--rojo); }
 
-body{
-font-family:'Segoe UI';
-text-align:center;
-background:#1a1a2e;
-color:white;
-margin:0;
-}
+        .mano { display: flex; flex-wrap: wrap; justify-content: center; max-width: 1000px; padding: 20px; }
+        .deshabilitado { pointer-events: none; filter: grayscale(0.8) opacity(0.5); }
 
-.pantalla{
-display:none;
-padding:20px;
-min-height:100vh;
-flex-direction:column;
-align-items:center;
-justify-content:center;
-}
+        /* Modales */
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; padding: 20px; box-sizing: border-box; }
+        .modal-content { background: #2c2c2c; padding: 30px; border-radius: 20px; width: 100%; max-width: 550px; border: 2px solid var(--amarillo); max-height: 80vh; overflow-y: auto; }
+        .opcion-btn { display: block; width: 100%; padding: 15px; margin: 10px 0; background: #444; color: white; border: 1px solid #555; border-radius: 10px; cursor: pointer; text-align: left; font-size: 1rem; }
+        .opcion-btn:hover { background: #555; border-color: var(--amarillo); }
 
-.activa{display:flex;}
+        #qrcode { background: white; padding: 10px; border-radius: 10px; margin: 20px; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <div id="pantalla-inicio" class="pantalla activa">
+        <h1>MENTALUNO</h1>
+        <p style="color: #aaa; margin-bottom: 20px;">Desafío Académico EXANI-II</p>
+        <button class="btn-menu btn-individual" onclick="iniciarIndividual()">👤 Individual vs 3 Bots</button>
+        <button class="btn-menu btn-crear" onclick="prepararHost()">📡 Crear Sala Multijugador</button>
+        <button class="btn-menu btn-unirse" onclick="cambiarPantalla('unirse')">🔗 Unirse a Sala</button>
+        <button class="btn-menu btn-reglas" onclick="mostrarReglas()">📜 Reglas del Juego</button>
+    </div>
+
+    <div id="modal-reglas" class="modal">
+        <div class="modal-content">
+            <h2 style="color: var(--amarillo);">Reglas de MentalUNO</h2>
+            <ul style="text-align: left; line-height: 1.6;">
+                <li><b>Objetivo:</b> Quedarse sin cartas antes que los demás.</li>
+                <li><b>Coincidencia:</b> Solo puedes jugar una carta si coincide en <b>Color</b> o <b>Número</b> con la que está en la mesa.</li>
+                <li><b>El Desafío:</b> Cada carta tiene una pregunta de EXANI-II. Si respondes bien, la carta se queda en la mesa. Si fallas, <b>robas una carta</b> y pierdes el turno.</li>
+                <li><b>Mazo:</b> Si no tienes ninguna carta que coincida, debes <b>robar una del mazo</b> y el turno pasará automáticamente.</li>
+                <li><b>Modo Individual:</b> Juegas contra Bot A, B y C.</li>
+            </ul>
+            <button class="btn-menu btn-accion" onclick="cerrarReglas()">Entendido</button>
+        </div>
+    </div>
+
+    <div id="pantalla-host" class="pantalla">
+        <h2>Código de Sala: <span id="codigo-sala" style="color:var(--amarillo)">---</span></h2>
+        <div id="qrcode"></div>
+        <p>Comparte el código con tu amigo para empezar...</p>
+        <button class="btn-menu btn-reglas" onclick="location.reload()">Volver</button>
+    </div>
+
+    <div id="pantalla-unirse" class="pantalla">
+        <h2>Ingresar Código</h2>
+        <input type="text" id="input-sala" placeholder="CÓDIGO" maxlength="4" style="padding:15px; font-size:2rem; text-align:center; width:200px; border-radius:10px; border:none; text-transform:uppercase;">
+        <button class="btn-menu btn-crear" onclick="conectarASala()">Conectar</button>
+        <button class="btn-menu btn-reglas" onclick="cambiarPantalla('inicio')">Volver</button>
+    </div>
+
+    <div id="pantalla-juego" class="pantalla">
+        <div id="estado-bots" class="estado-bots">
+            <div id="bot0" class="bot-card">Bot A: <b id="cards-bot0">7</b></div>
+            <div id="bot1" class="bot-card">Bot B: <b id="cards-bot1">7</b></div>
+            <div id="bot2" class="bot-card">Bot C: <b id="cards-bot2">7</b></div>
+        </div>
+
+        <div id="indicador-turno" class="indicador-turno">Preparando...</div>
+        
+        <div class="mesa">
+            <div id="mesa-carta" class="carta">?</div>
+        </div>
+
+        <button id="btn-mazo" class="btn-menu" style="background:#444; width:180px;" onclick="robarCarta()">🎴 Robar del Mazo</button>
+
+        <div id="mano" class="mano"></div>
+    </div>
+
+    <div id="modal-pregunta" class="modal">
+        <div class="modal-content">
+            <p id="area-pregunta" style="color:var(--amarillo); font-weight:bold; font-size:0.8rem; text-transform:uppercase;"></p>
+            <h3 id="texto-pregunta">---</h3>
+            <div id="opciones-container"></div>
+        </div>
+    </div>
+
+<script>
+    // --- BANCO DE 50 PREGUNTAS EXANI-II ---
+    const preguntas = [
+        { a: "Comprensión Lectora", p: "1. El objetivo principal de un texto argumentativo es:", opciones: ["Narrar hechos", "Convencer mediante razones", "Describir objetos", "Enumerar datos"], correcta: 1 },
+        { a: "Comprensión Lectora", p: "2. El conector 'sin embargo' indica:", opciones: ["Consecuencia", "Ejemplo", "Contraste", "Comparación"], correcta: 2 },
+        { a: "Comprensión Lectora", p: "3. Inferir información en un texto significa:", opciones: ["Copiar datos", "Traducir palabras", "Deducir información implícita", "Repetir ideas"], correcta: 2 },
+        { a: "Comprensión Lectora", p: "4. Si un texto presenta cifras y estudios científicos, busca:", opciones: ["Expresar emociones", "Dar credibilidad al argumento", "Narrar historias", "Crear humor"], correcta: 1 },
+        { a: "Comprensión Lectora", p: "5. La idea principal de un texto es:", opciones: ["Un detalle secundario", "El mensaje central", "Una opinión", "Un ejemplo"], correcta: 1 },
+        { a: "Comprensión Lectora", p: "6. El conector 'por lo tanto' expresa:", opciones: ["Conclusión", "Oposición", "Comparación", "Ejemplo"], correcta: 0 },
+        { a: "Comprensión Lectora", p: "7. Un argumento basado en un solo caso se considera:", opciones: ["Generalización apresurada", "Argumento deductivo", "Evidencia científica", "Demostración lógica"], correcta: 0 },
+        { a: "Comprensión Lectora", p: "8. Cuando un autor cita expertos, intenta:", opciones: ["Persuadir con autoridad", "Narrar historias", "Explicar definiciones", "Evitar conclusiones"], correcta: 0 },
+        { a: "Pensamiento Matemático", p: "9. Si x + 2 = 6, el valor de x es:", opciones: ["3", "4", "5", "6"], correcta: 1 },
+        { a: "Pensamiento Matemático", p: "10. Simplifica: 3(2x + 5)", opciones: ["6x + 5", "6x + 15", "5x + 15", "3x + 5"], correcta: 1 },
+        { a: "Pensamiento Matemático", p: "11. La raíz cuadrada de 196 es:", opciones: ["12", "13", "14", "15"], correcta: 2 },
+        { a: "Pensamiento Matemático", p: "12. Si x² = 81, entonces x puede ser:", opciones: ["9", "-9", "9 o -9", "18"], correcta: 2 },
+        { a: "Pensamiento Matemático", p: "13. Si un triángulo tiene ángulos de 50° y 60°, el tercero mide:", opciones: ["60°", "70°", "80°", "90°"], correcta: 1 },
+        { a: "Pensamiento Matemático", p: "14. El 25% de 400 es:", opciones: ["50", "75", "100", "125"], correcta: 2 },
+        { a: "Pensamiento Matemático", p: "15. Un automóvil recorre 240 km en 4 horas. Su velocidad es:", opciones: ["50 km/h", "60 km/h", "70 km/h", "80 km/h"], correcta: 1 },
+        { a: "Pensamiento Matemático", p: "16. La expresión 4² + 5² es:", opciones: ["25", "41", "30", "45"], correcta: 1 },
+        { a: "Pensamiento Matemático", p: "17. Si 2x = 10, entonces x es:", opciones: ["4", "5", "6", "7"], correcta: 1 },
+        { a: "Pensamiento Matemático", p: "18. El área de un rectángulo de 8 cm por 5 cm es:", opciones: ["13", "30", "40", "45"], correcta: 2 },
+        { a: "Pensamiento Científico", p: "19. La unidad básica de los seres vivos es:", opciones: ["Órgano", "Tejido", "Célula", "Sistema"], correcta: 2 },
+        { a: "Pensamiento Científico", p: "20. La fotosíntesis ocurre principalmente en:", opciones: ["Cloroplastos", "Mitocondrias", "Núcleo", "Ribosomas"], correcta: 0 },
+        { a: "Pensamiento Científico", p: "21. El ADN contiene:", opciones: ["Energía", "Información genética", "Oxígeno", "Proteínas"], correcta: 1 },
+        { a: "Pensamiento Científico", p: "22. El organelo encargado de producir energía celular es:", opciones: ["Núcleo", "Mitocondria", "Ribosoma", "Vacuola"], correcta: 1 },
+        { a: "Pensamiento Científico", p: "23. La ley de conservación de la energía establece que:", opciones: ["Se destruye", "Se transforma pero no se crea ni destruye", "Desaparece", "Se multiplica"], correcta: 1 },
+        { a: "Pensamiento Científico", p: "24. El paso de agua a través de membranas se llama:", opciones: ["Difusión", "Ósmosis", "Fotosíntesis", "Evaporación"], correcta: 1 },
+        { a: "Pensamiento Científico", p: "25. En un experimento, la variable que se manipula es:", opciones: ["Dependiente", "Independiente", "Controlada", "Externa"], correcta: 1 },
+        { a: "Pensamiento Lógico", p: "26. Sucesión: 5, 10, 15, 20, ___", opciones: ["22", "25", "30", "35"], correcta: 1 },
+        { a: "Pensamiento Lógico", p: "27. Sucesión: 2, 6, 18, 54, ___", opciones: ["72", "108", "162", "216"], correcta: 2 },
+        { a: "Pensamiento Lógico", p: "28. Si todos los estudiantes estudian y Ana es estudiante, entonces:", opciones: ["Ana no estudia", "Ana estudia", "Ana enseña", "Ana trabaja"], correcta: 1 },
+        { a: "Pensamiento Lógico", p: "29. Analogía: Sol : día :: Luna :", opciones: ["cielo", "noche", "estrella", "planeta"], correcta: 1 },
+        { a: "Pensamiento Lógico", p: "30. Completa: Agua : beber :: comida :", opciones: ["cocinar", "comer", "cortar", "preparar"], correcta: 1 },
+        { a: "Inglés", p: "31. Choose the correct sentence:", opciones: ["She go to school", "She goes to school", "She going to school", "She gone to school"], correcta: 1 },
+        { a: "Inglés", p: "32. Synonym of big:", opciones: ["Small", "Large", "Short", "Thin"], correcta: 1 },
+        { a: "Inglés", p: "33. Past tense of run:", opciones: ["ran", "runned", "running", "runs"], correcta: 0 },
+        { a: "Inglés", p: "34. 'They ___ studying now.'", opciones: ["is", "are", "am", "be"], correcta: 1 },
+        { a: "Inglés", p: "35. 'Good evening' significa:", opciones: ["Buenos días", "Buenas tardes", "Buenas noches", "Hola"], correcta: 2 },
+        { a: "Análisis de Datos", p: "36. Un gráfico de barras se usa para:", opciones: ["Comparar categorías", "Mostrar tiempo", "Dibujar mapas", "Mostrar texto"], correcta: 0 },
+        { a: "Análisis de Datos", p: "37. Si la probabilidad de un evento es 0.5, equivale a:", opciones: ["5%", "50%", "0.5%", "500%"], correcta: 1 },
+        { a: "Análisis de Datos", p: "38. Si una muestra no representa a la población existe:", opciones: ["Precisión", "Sesgo", "Exactitud", "Media"], correcta: 1 },
+        { a: "Análisis de Datos", p: "39. La media de 4, 6 y 8 es:", opciones: ["5", "6", "7", "8"], correcta: 1 },
+        { a: "Análisis de Datos", p: "40. La mediana de 3, 5, 9 es:", opciones: ["5", "6", "7", "9"], correcta: 0 },
+        { a: "Razonamiento Cuantitativo", p: "41. Si un producto cuesta $500 y tiene descuento de 20%, el precio final es:", opciones: ["$350", "$400", "$420", "$450"], correcta: 1 },
+        { a: "Razonamiento Cuantitativo", p: "42. 75% de 200 es:", opciones: ["120", "130", "150", "175"], correcta: 2 },
+        { a: "Razonamiento Cuantitativo", p: "43. El resultado de 3³ es:", opciones: ["9", "18", "27", "81"], correcta: 2 },
+        { a: "Razonamiento Cuantitativo", p: "44. 10² es:", opciones: ["20", "100", "200", "1000"], correcta: 1 },
+        { a: "Razonamiento Cuantitativo", p: "45. La raíz cuadrada de 144 es:", opciones: ["10", "11", "12", "14"], correcta: 2 },
+        { a: "Cultura General", p: "46. El planeta más cercano al Sol es:", opciones: ["Venus", "Mercurio", "Marte", "Tierra"], correcta: 1 },
+        { a: "Cultura General", p: "47. El gas más abundante en la atmósfera es:", opciones: ["Oxígeno", "Hidrógeno", "Nitrógeno", "Helio"], correcta: 2 },
+        { a: "Cultura General", p: "48. El órgano que bombea la sangre es:", opciones: ["Pulmón", "Corazón", "Hígado", "Riñón"], correcta: 1 },
+        { a: "Cultura General", p: "49. La velocidad de la luz es aproximadamente:", opciones: ["300,000 km/s", "30,000 km/s", "3,000 km/s", "300 km/s"], correcta: 0 },
+        { a: "Cultura General", p: "50. La división celular que produce células idénticas se llama:", opciones: ["Meiosis", "Mitosis", "Fisión", "Reproducción"], correcta: 1 }
+    ];
+
+    let peer = null, conexion = null, miTurno = false, esHost = false, modoIndividual = false;
+    let mano = [], mesaActual = null, indexPendiente = null;
+    let manosBots = [[], [], []], turnoIndiv = 0; // 0: Jugador, 1-3: Bots
+
+    // --- NAVEGACIÓN ---
+    function cambiarPantalla(id) {
+        document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('activa'));
+        document.getElementById('pantalla-' + id).classList.add('activa');
+    }
+
+    function mostrarReglas() { document.getElementById('modal-reglas').style.display = 'flex'; }
+    function cerrarReglas() { document.getElementById('modal-reglas').style.display = 'none'; }
+
+    // --- LÓGICA DE CARTAS ---
+    function generarCarta() {
+        const colores = ["rojo", "azul", "verde", "amarillo"];
+        return {
+            color: colores[Math.floor(Math.random() * 4)],
+            valor: Math.floor(Math.random() * 10).toString(),
+            qIndex: Math.floor(Math.random() * preguntas.length)
+        };
+    }
+
+    function actualizarMesa(carta) {
+        mesaActual = carta;
+        const el = document.getElementById('mesa-carta');
+        el.className = `carta ${carta.color}`;
+        el.innerText = carta.valor;
+    }
+
+    function actualizarInterfazMano() {
+        const cont = document.getElementById('mano');
+        cont.innerHTML = "";
+        mano.forEach((c, i) => {
+            const d = document.createElement('div');
+            d.className = `carta ${c.color}`;
+            d.innerText = c.valor;
+            d.onclick = () => intentarJugar(i);
+            cont.appendChild(d);
+        });
+        
+        if(modoIndividual) {
+            for(let i=1; i<4; i++) {
+                document.getElementById(`cards-bot${i-1}`).innerText = manosBots[i-1].length;
+                document.getElementById(`bot${i-1}`).className = (turnoIndiv === i) ? "bot-card bot-activo" : "bot-card";
+            }
+        }
+    }
+
+    function setTurno(mio) {
+        miTurno = mio;
+        const ind = document.getElementById('indicador-turno');
+        const mazo = document.getElementById('btn-mazo');
+        if(mio) {
+            ind.innerText = "TU TURNO";
+            ind.className = "indicador-turno turno-mio";
+            document.getElementById('mano').classList.remove('deshabilitado');
+            mazo.classList.remove('deshabilitado');
+        } else {
+            ind.innerText = modoIndividual ? "TURNO DE LOS BOTS..." : "TURNO DEL OPONENTE...";
+            ind.className = "indicador-turno turno-otro";
+            document.getElementById('mano').classList.add('deshabilitado');
+            mazo.classList.add('deshabilitado');
+        }
+    }
+
+    // --- ACCIONES DE JUEGO ---
+    function intentarJugar(idx) {
+        const c = mano[idx];
+        if(c.color === mesaActual.color || c.valor === mesaActual.valor) {
+            indexPendiente = idx;
+            lanzarPregunta(c.qIndex);
+        } else {
+            alert("¡No coincide! Debe ser mismo color o número.");
+        }
+    }
+
+    function lanzarPregunta(qIdx) {
+        const q = preguntas[qIdx];
+        document.getElementById('area-pregunta').innerText = q.a;
+        document.getElementById('texto-pregunta').innerText = q.p;
+        const cont = document.getElementById('opciones-container');
+        cont.innerHTML = "";
+        q.opciones.forEach((opc, i) => {
+            const b = document.createElement('button');
+            b.className = "opcion-btn";
+            b.innerText = opc;
+            b.onclick = () => verificarRespuesta(i, q.correcta);
+            cont.appendChild(b);
+        });
+        document.getElementById('modal-pregunta').style.display = 'flex';
+    }
+
+    function verificarRespuesta(elegida, correcta) {
+        document.getElementById('modal-pregunta').style.display = 'none';
+        if(elegida === correcta) {
+            const cartaJugada = mano.splice(indexPendiente, 1)[0];
+            actualizarMesa(cartaJugada);
+            actualizarInterfazMano();
+            if(mano.length === 0) return finalizarJuego("¡HAS GANADO!");
+            
+            if(!modoIndividual) {
+                conexion.send({ tipo: 'jugada', carta: cartaJugada });
+                setTurno(false);
+            } else {
+                turnoIndiv = 1;
+                procesarIA();
+            }
+        } else {
+            alert("¡Incorrecto! Robas una carta de castigo.");
+            mano.push(generarCarta());
+            actualizarInterfazMano();
+            if(!modoIndividual) {
+                conexion.send({ tipo: 'paso' });
+                setTurno(false);
+            } else {
+                turnoIndiv = 1;
+                procesarIA();
+            }
+        }
+    }
+
+    function robarCarta() {
+        mano.push(generarCarta());
+        actualizarInterfazMano();
+        if(!modoIndividual) {
+            conexion.send({ tipo: 'paso' });
+            setTurno.activa{display:flex;}
 
 h1{
 color:var(--amarillo);
